@@ -24,14 +24,14 @@ withContainer base computation =
     withTmpDir
       ( \tdir -> do
           liftIO $ callProcess "/bin/cp" ["-R", contBasePath base, tdir ++ "/cont"]
-          (inpipe, outpipe, errpipe, ph) <-
-            liftIO . createProcess $
+          (Just inpipe, Just outpipe, Just errpipe, ph) <-
+            liftIO . createProcess_ "" $
               (proc "systemd-nspawn" ["--pipe", "-q", "-D", tdir ++ "/cont"])
                 { std_in = CreatePipe,
                   std_out = CreatePipe,
                   std_err = CreatePipe
                 }
-          fromJust $ liftIO <$> (computation <$> inpipe <*> outpipe <*> errpipe)
+          liftIO $ computation inpipe outpipe errpipe
           _ <- liftIO $ waitForProcess ph
           return ()
       )

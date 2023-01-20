@@ -9,8 +9,11 @@ main =
     (ContainerBase "/home/isaac/containers/alpine")
     (\inpp outpp errpp -> do
       hPutStr inpp "echo hi\n"
-      hPutStr inpp "sleep 1\n"
-      _ <- putStr <$> hShow outpp
-      --hPutStr inpp "exit\n"
+      putStrLn "a"
+      putStr =<< hGetContents outpp
+      putStr =<< hGetContents outpp
+      putStrLn "b"
+      --hPutStr inpp "echo hi\n"
+      --putStr =<< hGetContents outpp
       return ()
     )
