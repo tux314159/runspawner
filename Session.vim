@@ -13,9 +13,11 @@ if &shortmess =~ 'A'
 else
   set shortmess=aoO
 endif
-badd +29 src/Container.hs
-badd +16 app/Main.hs
-badd +26 package.yaml
+badd +54 src/Container.hs
+badd +11 app/Main.hs
+badd +48 package.yaml
+badd +1 Setup.hs
+badd +1 stack.yaml
 argglobal
 %argdel
 $argadd src/Container.hs
@@ -36,12 +38,12 @@ setlocal fdn=20
 setlocal fen
 silent! normal! zE
 let &fdl = &fdl
-let s:l = 29 - ((28 * winheight(0) + 22) / 45)
+let s:l = 54 - ((36 * winheight(0) + 22) / 45)
 if s:l < 1 | let s:l = 1 | endif
 keepjumps exe s:l
 normal! zt
-keepjumps 29
-normal! 038|
+keepjumps 54
+normal! 041|
 if exists(':tcd') == 2 | tcd ~/Devel/Pheidippides | endif
 tabnext
 edit ~/Devel/Pheidippides/app/Main.hs
@@ -56,17 +58,16 @@ setlocal fdn=20
 setlocal fen
 silent! normal! zE
 let &fdl = &fdl
-let s:l = 15 - ((14 * winheight(0) + 22) / 45)
+let s:l = 1 - ((0 * winheight(0) + 22) / 45)
 if s:l < 1 | let s:l = 1 | endif
 keepjumps exe s:l
 normal! zt
-keepjumps 15
-normal! 0
+keepjumps 1
+normal! 07|
 if exists(':tcd') == 2 | tcd ~/Devel/Pheidippides | endif
 tabnext
 edit ~/Devel/Pheidippides/package.yaml
 argglobal
-balt ~/Devel/Pheidippides/app/Main.hs
 setlocal fdm=manual
 setlocal fde=0
 setlocal fmr={{{,}}}
@@ -77,12 +78,12 @@ setlocal fdn=20
 setlocal fen
 silent! normal! zE
 let &fdl = &fdl
-let s:l = 26 - ((0 * winheight(0) + 22) / 45)
+let s:l = 48 - ((29 * winheight(0) + 22) / 45)
 if s:l < 1 | let s:l = 1 | endif
 keepjumps exe s:l
 normal! zt
-keepjumps 26
-normal! 08|
+keepjumps 48
+normal! 04|
 if exists(':tcd') == 2 | tcd ~/Devel/Pheidippides | endif
 tabnext 1
 set stal=1
