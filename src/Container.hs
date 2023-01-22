@@ -67,17 +67,17 @@ withContainer base computation =
 -- | Read one line from container stdout.
 data CCGetLn = CCGetLn
 instance CCAction CCGetLn (IO String) where
-  contCtxDo cctx _ = hGetLine $ ccInPp cctx
+  contCtxDo cctx _ = hGetLine $ ccOutPp cctx
 
 -- | Read one char from container stdout.
 data CCGetChar = CCGetChar
 instance CCAction CCGetChar (IO Char) where
-  contCtxDo cctx _ = hGetChar $ ccInPp cctx
+  contCtxDo cctx _ = hGetChar $ ccOutPp cctx
 
 -- | Write a string to container stdin.
 data CCPutStr = CCPutStr
 instance CCAction CCPutStr (String -> IO ()) where
-  contCtxDo cctx _ = hPutStr $ ccOutPp cctx
+  contCtxDo cctx _ = hPutStr $ ccInPp cctx
 
 -- | Like just running cp normally.
 data CCCopy = CCCopy
