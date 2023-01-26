@@ -13,7 +13,6 @@ module Container
     CCGetLn (..),
     CCGetChar (..),
     CCPutStr (..),
-    CCShellCmd (..),
     CCWaitShCmd (..),
     CCCopy (..),
     CCCopyExt (..),
@@ -21,8 +20,7 @@ module Container
   )
 where
 
-import Debug.Trace
-import Shelly (cp_r, liftIO, shelly, withTmpDir, (</>))
+import Shelly (cp_r, liftIO, shelly, withTmpDir)
 import System.IO
 import System.Process
 import Control.Monad (void)
@@ -36,7 +34,8 @@ data ContCtx = ContCtx
   { ccInPp :: Handle,
     ccOutPp :: Handle,
     ccErrPp :: Handle,
-    ccRealPath :: FilePath
+    ccRealPath :: FilePath,
+    ccJobCtlPipe :: Handle
   }
 
 -- | Typeclass representing all actions on a container.
@@ -45,7 +44,7 @@ class CCAction a b | a -> b where
 
 -- | Where our job-control pipe is
 phpPipePath :: String
-phpPipePath = "/var/run/pheidippides-pipe\n"
+phpPipePath = "/var/lib/pheidippides-job-pipe"
 
 -- | Constructs a container context and runs within it a computation.
 withContainer :: ContainerBase -> ((forall act. forall out. CCAction act out => act -> out) -> IO ()) -> IO ()
@@ -54,34 +53,34 @@ withContainer base computation =
     withTmpDir
       ( \tdir -> do
           let contPath = tdir ++ "/cont"
+
           -- Copy base container to temp container.
           liftIO $ callProcess "/bin/cp" ["-R", contBasePath base, contPath]
+
           -- Start the container.
           (Just inpipe, Just outpipe, Just errpipe, ph) <-
             liftIO . createProcess $
-              (proc "systemd-nspawn" ["--pipe", "-q", "-D", contPath])
+              (proc "systemd-nspawn" ["--pipe", "-D", contPath, "/bin/shserver"])
                 { std_in = CreatePipe,
                   std_out = CreatePipe,
                   std_err = CreatePipe
                 }
+          _ <- liftIO $ hGetLine outpipe  -- empty line emitted by shserver to signal ready
+          jobCtlPipe <- liftIO $ openFile (contPath ++ phpPipePath) ReadMode
+
           -- Set modes.
           liftIO $ mapM_ (`hSetBinaryMode` True) [inpipe, outpipe, errpipe]
           liftIO $ mapM_ (`hSetBuffering` NoBuffering) [inpipe, outpipe, errpipe]
-          -- Create fifo in the new container, for communication.
-          -- This is probably far from the best way to do this but... whatever :D
-          liftIO $
-            contCtxDo
-              (ContCtx inpipe outpipe errpipe contPath)
-              CCPutStr
-              $ "mkfifo " ++ phpPipePath ++ "\n"
-          --liftIO $ withFile phpPipePath ReadMode $ flip hSetBuffering NoBuffering
+
           -- Now we run the computation.
           liftIO
             ( computation $
                 contCtxDo $
-                  ContCtx inpipe outpipe errpipe contPath
+                  ContCtx inpipe outpipe errpipe contPath jobCtlPipe
             )
           _ <- liftIO $ waitForProcess ph
+
+          liftIO $ hClose jobCtlPipe
           return ()
       )
 
@@ -113,22 +112,9 @@ data CCPutStr = CCPutStr
 instance CCAction CCPutStr (String -> IO ()) where
   contCtxDo cctx _ = hPutStr $ ccInPp cctx
 
--- | Run a command in the container shell as unpriviledged user (container must
---   have it in the foreground). In particular cmd must be escaped; it will be placed
---   inside double-quotes. Again this is quite hacky but oh well.
-data CCShellCmd = CCShellCmd
-instance CCAction CCShellCmd (String -> IO ()) where
-  contCtxDo cctx _ cmd = do
-    let !a=traceId $ "su user -c \"" ++ cmd ++ "\";" ++ "echo >" ++ phpPipePath ++ "\n"
-    --contCtxDo cctx CCPutStr $
-      --"su user -c \"" ++ cmd ++ "\";" ++ "echo -e '\\n' >" ++ phpPipePath ++ "\n"
-    hPutStr (ccInPp cctx) $ "su user -c \"" ++ cmd ++ "\";" ++ "echo -e '\\n' >" ++ phpPipePath ++ "\n"
-    let !a=traceId $ "su user -c \"" ++ cmd ++ "\";" ++ "echo -e '\\n' >" ++ phpPipePath ++ "\n"
-    return ()
-
 data CCWaitShCmd = CCWaitShCmd
 instance CCAction CCWaitShCmd (IO ()) where
-  contCtxDo cctx _ = void $ withFile (ccRealPath cctx </> phpPipePath) ReadMode hGetChar
+  contCtxDo cctx _ = void $ hGetChar (ccJobCtlPipe cctx)
 
 -- | Like just running cp normally.
 data CCCopy = CCCopy
@@ -138,6 +124,6 @@ instance CCAction CCCopy (FilePath -> FilePath -> IO ()) where
 -- | Copy a file/dir recursively from the outside into the container.
 data CCCopyExt = CCCopyExt
 instance CCAction CCCopyExt (FilePath -> FilePath -> IO ()) where
-  contCtxDo cctx _ src dest = shelly $ cp_r src $ ccRealPath cctx </> dest
+  contCtxDo cctx _ src dest = shelly $ cp_r src $ ccRealPath cctx ++ dest
 
 {- ORMOLU_ENABLE -}
