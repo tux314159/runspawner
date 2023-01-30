@@ -10,7 +10,7 @@ module Container
     ContCtx (..),
     CCAction (..),
     CCGetAll (..),
-    CCGetLn (..),
+    CCGetLine (..),
     CCGetChar (..),
     CCPutStr (..),
     CCWaitShCmd (..),
@@ -60,7 +60,7 @@ withContainer base computation =
           -- Start the container.
           (Just inpipe, Just outpipe, Just errpipe, ph) <-
             liftIO . createProcess $
-              (proc "systemd-nspawn" ["--pipe", "-D", contPath, "/bin/shserver"])
+              (proc "systemd-nspawn" ["-q", "--console=interactive", "-D", contPath, "/bin/shserver"])
                 { std_in = CreatePipe,
                   std_out = CreatePipe,
                   std_err = CreatePipe
@@ -87,11 +87,17 @@ withContainer base computation =
 -- Now, we can define some more nice container actions.
 {- ORMOLU_DISABLE -}
 
+-- | Read one char from container stdout.
+data CCGetChar = CCGetChar
+instance CCAction CCGetChar (IO Char) where
+  contCtxDo cctx _ = hGetChar $ ccOutPp cctx
+
 -- | Read one line from container stdout.
-data CCGetLn = CCGetLn
-instance CCAction CCGetLn (IO String) where
+data CCGetLine = CCGetLine
+instance CCAction CCGetLine (IO String) where
   contCtxDo cctx _ = hGetLine $ ccOutPp cctx
 
+-- | Read everything from container stdout.
 data CCGetAll = CCGetAll
 instance CCAction CCGetAll (IO String) where
   contCtxDo cctx _ = getAll (ccOutPp cctx) ""
@@ -102,16 +108,14 @@ instance CCAction CCGetAll (IO String) where
           then return $ reverse s
           else getAll outPp . (: s) =<< contCtxDo cctx CCGetChar
 
--- | Read one char from container stdout.
-data CCGetChar = CCGetChar
-instance CCAction CCGetChar (IO Char) where
-  contCtxDo cctx _ = hGetChar $ ccOutPp cctx
-
 -- | Write a string to container stdin.
 data CCPutStr = CCPutStr
 instance CCAction CCPutStr (String -> IO ()) where
-  contCtxDo cctx _ = hPutStr $ ccInPp cctx
+  contCtxDo cctx _ s = do
+    hPutStr (ccInPp cctx) s 
+    hFlush $ ccInPp cctx
 
+-- | Wait for the current command to be done executing.
 data CCWaitShCmd = CCWaitShCmd
 instance CCAction CCWaitShCmd (IO ()) where
   contCtxDo cctx _ = void $ hGetChar (ccJobCtlPipe cctx)

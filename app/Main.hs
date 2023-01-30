@@ -7,12 +7,13 @@ main =
   withContainer
     (ContainerBase "/home/isaac/containers/alpine")
     (\contDo -> do
-      --contDo CCPutStr "echo hi\n"
-      --contDo CCWaitShCmd
-      --putStr =<< contDo CCGetLn
-      --contDo CCPutStr "echo bye\n"
-      --contDo CCWaitShCmd
-      --putStr =<< contDo CCGetAll
+      contDo CCPutStr "echo hi\n"
+      contDo CCWaitShCmd
+      contDo CCPutStr "echo bye\n"
+      contDo CCWaitShCmd
+      contDo CCPutStr "ls\n"
+      contDo CCWaitShCmd
+      putStr =<< contDo CCGetAll
 
       --getLine >>= contDo CCPutStr
       --contDo CCWaitShCmd

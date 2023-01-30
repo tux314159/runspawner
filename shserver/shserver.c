@@ -1,4 +1,5 @@
 #include <fcntl.h>
+#include <termios.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,7 +30,6 @@ size_t readline(int fd, char *buf, size_t max_n)
 {
 	int n = 0, x;
 	while ((x = read(fd, buf + (n++), 1))) {
-		fprintf(stderr, "n=%d\n", n);
 		if (buf[n - 1] == '\n') {
 			buf[n - 1] = '\0';
 			break;
@@ -40,27 +40,27 @@ size_t readline(int fd, char *buf, size_t max_n)
 
 int main(void)
 {
+	// Put ourselves into raw mode.
+	struct termios raw;
+	tcgetattr(STDIN_FILENO, &raw);
+	raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
+	raw.c_oflag &= ~(OPOST);
+	raw.c_cflag |= (CS8);
+	raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
+	tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+	// Create the job fifo.
 	mkfifo(job_pipe_path, O_RDWR);
-	printf("\n");
-	fflush(stdout);
-	int job_ppe = open(job_pipe_path, O_WRONLY);
+	// We are ready.
+	write(STDOUT_FILENO, "\n", 1);
 
-	int inpipe[2], outpipe[2], errpipe[2];
+	int job_ppe = open(job_pipe_path, O_WRONLY);
 
 	char cmd[BUFSZ];
 	int n;
 	while ((n = readline(STDIN_FILENO, cmd, BUFSZ-1))) {
-		fflush(stdin);
 		cmd[n - 1] = '\0';
-		pipe(inpipe);
-		pipe(outpipe);
-		pipe(errpipe);
 		pid_t cpid = fork();
 		if (!cpid) {
-			//dup2(inpipe[0], STDIN_FILENO);
-			dup2(outpipe[1], STDOUT_FILENO);
-			dup2(errpipe[1], STDERR_FILENO);
-			close(STDIN_FILENO);
 			close(job_ppe);
 
 			int nargs = 0;
@@ -78,29 +78,11 @@ int main(void)
 			setgid(1000);
 			setuid(1000);
 			execvp(cmd, argv);
-			close(inpipe[0]);
-			close(outpipe[1]);
-			close(errpipe[1]);
 			_exit(0);
 		}
 		wait(NULL);
-
-		close(inpipe[0]);
-		close(outpipe[1]);
-		close(errpipe[1]);
-		
-		char buf[BUFSZ];
-		while ((n = read(outpipe[0], buf, BUFSZ))) {
-			write(STDOUT_FILENO, buf, n);
-		}
-		while ((n = read(errpipe[0], buf, BUFSZ))) {
-			write(STDERR_FILENO, buf, n);
-		}
+		fsync(STDOUT_FILENO);
 		write(job_ppe, "\n", 1);
-
-		close(inpipe[1]);
-		close(outpipe[0]);
-		close(errpipe[0]);
 	}
 
 	close(job_ppe);
