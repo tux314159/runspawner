@@ -20,11 +20,11 @@ module Container
   )
 where
 
+import Control.Monad (join, void)
+import Data.List (intersperse)
 import Shelly (cp_r, liftIO, shelly, withTmpDir)
 import System.IO
 import System.Process
-import Control.Monad (join, void)
-import Data.List (intersperse)
 
 newtype ContainerBase = ContainerBase {contBasePath :: FilePath}
 
@@ -61,12 +61,12 @@ withContainer base computation =
           -- Start the container.
           (Just inpipe, Just outpipe, Just errpipe, ph) <-
             liftIO . createProcess $
-              (proc "systemd-nspawn" ["-q", "--console=interactive", "-D", contPath, "/bin/shserver"])
+              (proc "systemd-nspawn" ["-q", "--console=interactive", "-D", contPath, "/bin/sherver"])
                 { std_in = CreatePipe,
                   std_out = CreatePipe,
                   std_err = CreatePipe
                 }
-          _ <- liftIO $ hGetLine outpipe  -- empty line emitted by shserver to signal ready
+          _ <- liftIO $ hGetLine outpipe -- empty line emitted by shserver to signal ready
           jobCtlPipe <- liftIO $ openFile (contPath ++ phpPipePath) ReadMode
 
           -- Set modes.
