@@ -71,7 +71,7 @@ withContainer base computation =
 
           -- Set modes.
           liftIO $ mapM_ (`hSetBinaryMode` True) [inpipe, outpipe, errpipe]
-          liftIO $ mapM_ (`hSetBuffering` NoBuffering) [inpipe, outpipe, errpipe]
+          liftIO $ mapM_ (`hSetBuffering` LineBuffering) [inpipe, outpipe, errpipe]
 
           -- Now we run the computation.
           liftIO
