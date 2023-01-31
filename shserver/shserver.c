@@ -25,19 +25,6 @@
 
 const char job_pipe_path[] = "/var/lib/pheidippides-job-pipe";
 
-// NOTE: returns number of bytes read INCLUDING newline.
-size_t readline(int fd, char *buf, size_t max_n)
-{
-	int n = 0, x;
-	while ((x = read(fd, buf + (n++), 1))) {
-		if (buf[n - 1] == '\n') {
-			buf[n - 1] = '\0';
-			break;
-		}
-	}
-	return n - !x;
-}
-
 int main(void)
 {
 	// Put ourselves into raw mode.
@@ -62,22 +49,9 @@ int main(void)
 		pid_t cpid = fork();
 		if (!cpid) {
 			close(job_ppe);
-
-			int nargs = 0;
-			char *argv[BUFSZ];
-			memset(argv, 0, sizeof(*argv) * BUFSZ);
-			for (int i = 0; i < n; i++) {
-				if (cmd[i] == ' ') {
-					cmd[i] = '\0';
-					argv[++nargs] = cmd + i + 1;
-				}
-			}
-			argv[0] = cmd;
-			argv[nargs + 1] = NULL;
-
 			setgid(1000);
 			setuid(1000);
-			execvp(cmd, argv);
+			system(cmd);
 			_exit(0);
 		}
 		wait(NULL);
