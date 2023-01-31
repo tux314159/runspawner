@@ -10,9 +10,9 @@ it by communicating over a pipe with a small little C server inside.
 ## Building
 Build the main Haskell executeable with `stack`. The small C server in
 `sherver/` can be built with `make -C sherver`; the resulting binary
-int `sherver/sherver` must be copied to `/bin/sherver` in the container.
+in `sherver/sherver` must be copied to `/bin/sherver` in the container.
 
 ## Usage
 The container base image must have an unpriviledged user with UID 1000
-and an unpriveiledged group with GID 1000. The main executable must be
+and an unpriveiledged group with GID 1000. The executables must be
 started as root.
