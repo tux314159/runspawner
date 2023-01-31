@@ -23,7 +23,8 @@ where
 import Shelly (cp_r, liftIO, shelly, withTmpDir)
 import System.IO
 import System.Process
-import Control.Monad (void)
+import Control.Monad (join, void)
+import Data.List (intersperse)
 
 newtype ContainerBase = ContainerBase {contBasePath :: FilePath}
 
@@ -92,7 +93,7 @@ data CCGetChar = CCGetChar
 instance CCAction CCGetChar (IO Char) where
   contCtxDo cctx _ = hGetChar $ ccOutPp cctx
 
--- | Read one line from container stdout.
+-- | Read one line from container stdout, omitting the trailing newline.
 data CCGetLine = CCGetLine
 instance CCAction CCGetLine (IO String) where
   contCtxDo cctx _ = hGetLine $ ccOutPp cctx
@@ -100,13 +101,13 @@ instance CCAction CCGetLine (IO String) where
 -- | Read everything from container stdout.
 data CCGetAll = CCGetAll
 instance CCAction CCGetAll (IO String) where
-  contCtxDo cctx _ = getAll (ccOutPp cctx) ""
+  contCtxDo cctx _ = join <$> getAll (ccOutPp cctx) []
     where
       getAll outPp s = do
         isready <- not <$> hReady outPp
         if isready
-          then return $ reverse s
-          else getAll outPp . (: s) =<< contCtxDo cctx CCGetChar
+          then return . reverse . intersperse "\n" $ "" : s
+          else getAll outPp . (: s) =<< contCtxDo cctx CCGetLine
 
 -- | Write a string to container stdin.
 data CCPutStr = CCPutStr
