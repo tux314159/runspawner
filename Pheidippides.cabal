@@ -56,6 +56,23 @@ executable Pheidippides-exe
     , text
   default-language: Haskell2010
 
+executable Toy-exe
+  main-is: Main.hs
+  other-modules:
+      Toy
+      Paths_Pheidippides
+  hs-source-dirs:
+      app/toy
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      Pheidippides
+    , base >=4.7 && <5
+    , process
+    , shelly
+    , strict
+    , text
+  default-language: Haskell2010
+
 test-suite Pheidippides-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs

@@ -50,6 +50,15 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - Pheidippides
+  Toy-exe:
+    main:                Main.hs
+    source-dirs:         app/toy
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - Pheidippides
 
 tests:
   Pheidippides-test:
