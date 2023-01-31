@@ -9,8 +9,10 @@ main =
     (\contDo -> do
       contDo CCPutStr "echo hi\n"
       contDo CCWaitShCmd
+      putStrLn =<< contDo CCGetLine
       contDo CCPutStr "echo bye\n"
       contDo CCWaitShCmd
+      putStrLn =<< contDo CCGetLine
       contDo CCPutStr "ls\n"
       contDo CCWaitShCmd
       putStr =<< contDo CCGetAll

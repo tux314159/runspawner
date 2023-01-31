@@ -46,7 +46,7 @@ int main(void)
 	raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
 	raw.c_oflag &= ~(OPOST);
 	raw.c_cflag |= (CS8);
-	raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
+	raw.c_lflag &= ~(ECHO | IEXTEN | ISIG);
 	tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
 	// Create the job fifo.
 	mkfifo(job_pipe_path, O_RDWR);
@@ -57,7 +57,7 @@ int main(void)
 
 	char cmd[BUFSZ];
 	int n;
-	while ((n = readline(STDIN_FILENO, cmd, BUFSZ-1))) {
+	while ((n = read(STDIN_FILENO, cmd, BUFSZ-1))) {
 		cmd[n - 1] = '\0';
 		pid_t cpid = fork();
 		if (!cpid) {
