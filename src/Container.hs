@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# OPTIONS_GHC -fexpose-all-unfoldings #-}
 
@@ -12,19 +13,26 @@ module Container
     CCGetAll (..),
     CCGetLine (..),
     CCGetChar (..),
+    CCInsertFile (..),
     CCPutStr (..),
     CCWaitShCmd (..),
-    CCCopy (..),
     CCCopyExt (..),
+    CCOutStream (..),
+    CCmdOutW,
+    ContCmdOut,
     withContainer,
   )
 where
 
-import Control.Monad (join, void)
+import Control.Monad.Writer.Strict
+import qualified Data.ByteString.Lazy as LBS
 import Data.List (intersperse)
-import Shelly (cp_r, liftIO, shelly, withTmpDir)
+import Data.DList
+import qualified Data.Text as T
+import Shelly (cp_r, shelly, withTmpDir)
 import System.IO
 import System.Process
+import Data.Bifunctor (bimap)
 
 newtype ContainerBase = ContainerBase {contBasePath :: FilePath}
 
@@ -47,8 +55,16 @@ class CCAction a b | a -> b where
 phpPipePath :: String
 phpPipePath = "/var/lib/pheidippides-job-pipe"
 
+-- | Data type representing the output, etc. of a single command.
+type ContCmdOut = (T.Text, T.Text)
+
+type CCmdOutW a = WriterT (DList ContCmdOut) IO a
+
 -- | Constructs a container context and runs within it a computation.
-withContainer :: ContainerBase -> ((forall act. forall out. CCAction act out => act -> out) -> IO ()) -> IO ()
+withContainer ::
+  ContainerBase ->
+  ((forall act. forall out. CCAction act out => act -> out) -> CCmdOutW a) ->
+  IO ContCmdOut
 withContainer base computation =
   shelly $
     withTmpDir
@@ -74,61 +90,90 @@ withContainer base computation =
           liftIO $ mapM_ (`hSetBuffering` LineBuffering) [inpipe, outpipe, errpipe]
 
           -- Now we run the computation.
-          liftIO
-            ( computation $
-                contCtxDo $
-                  ContCtx inpipe outpipe errpipe contPath jobCtlPipe
-            )
+          compWriter <-
+            liftIO $
+              execWriterT
+                ( computation $
+                    contCtxDo $
+                      ContCtx inpipe outpipe errpipe contPath jobCtlPipe
+                )
           _ <- liftIO $ waitForProcess ph
 
           liftIO $ hClose jobCtlPipe
-          return ()
+          return . bimap T.concat T.concat . unzip $ toList compWriter
       )
 
 -- Now, we can define some more nice container actions.
-{- ORMOLU_DISABLE -}
+
+-- | Selector for container stdout or stderr.
+data CCOutStream = CCOut | CCErr
 
 -- | Read one char from container stdout.
 data CCGetChar = CCGetChar
-instance CCAction CCGetChar (IO Char) where
-  contCtxDo cctx _ = hGetChar $ ccOutPp cctx
+
+instance CCAction CCGetChar (CCOutStream -> CCmdOutW Char) where
+  contCtxDo cctx _ stream =
+    liftIO $
+      hGetChar $
+        ( case stream of
+            CCOut -> ccOutPp
+            CCErr -> ccErrPp
+        )
+          cctx
 
 -- | Read one line from container stdout, omitting the trailing newline.
 data CCGetLine = CCGetLine
-instance CCAction CCGetLine (IO String) where
-  contCtxDo cctx _ = hGetLine $ ccOutPp cctx
+
+instance CCAction CCGetLine (CCOutStream -> CCmdOutW T.Text) where
+  contCtxDo cctx _ stream =
+    T.pack
+      <$> liftIO
+        ( hGetLine $
+            ( case stream of
+                CCOut -> ccOutPp
+                CCErr -> ccErrPp
+            )
+              cctx
+        )
 
 -- | Read everything from container stdout.
 data CCGetAll = CCGetAll
-instance CCAction CCGetAll (IO String) where
-  contCtxDo cctx _ = join <$> getAll (ccOutPp cctx) []
+
+instance CCAction CCGetAll (CCOutStream -> CCmdOutW T.Text) where
+  contCtxDo cctx _ stream =
+    let ppe = case stream of
+          CCOut -> ccOutPp
+          CCErr -> ccErrPp
+     in T.concat <$> getAll (ppe cctx) []
     where
-      getAll outPp s = do
-        isready <- not <$> hReady outPp
+      getAll ppe s = do
+        isready <- not <$> liftIO (hReady ppe)
         if isready
           then return . reverse . intersperse "\n" $ "" : s
-          else getAll outPp . (: s) =<< contCtxDo cctx CCGetLine
+          else getAll ppe . (: s) =<< contCtxDo cctx CCGetLine stream
 
 -- | Write a string to container stdin.
 data CCPutStr = CCPutStr
-instance CCAction CCPutStr (String -> IO ()) where
+
+instance CCAction CCPutStr (T.Text -> CCmdOutW ()) where
   contCtxDo cctx _ s = do
-    hPutStr (ccInPp cctx) s 
-    hFlush $ ccInPp cctx
+    liftIO $ hPutStr (ccInPp cctx) $ T.unpack s
+    liftIO $ hFlush $ ccInPp cctx
 
 -- | Wait for the current command to be done executing.
 data CCWaitShCmd = CCWaitShCmd
-instance CCAction CCWaitShCmd (IO ()) where
-  contCtxDo cctx _ = void $ hGetChar (ccJobCtlPipe cctx)
 
--- | Like just running cp normally.
-data CCCopy = CCCopy
-instance CCAction CCCopy (FilePath -> FilePath -> IO ()) where
-  contCtxDo cctx _ src dest = contCtxDo cctx CCPutStr $ "cp " ++ src ++ " " ++ dest ++ "\n"
+instance CCAction CCWaitShCmd (CCmdOutW ()) where
+  contCtxDo cctx _ = void $ liftIO $ hGetChar (ccJobCtlPipe cctx)
 
 -- | Copy a file/dir recursively from the outside into the container.
 data CCCopyExt = CCCopyExt
-instance CCAction CCCopyExt (FilePath -> FilePath -> IO ()) where
-  contCtxDo cctx _ src dest = shelly $ cp_r src $ ccRealPath cctx ++ dest
 
-{- ORMOLU_ENABLE -}
+instance CCAction CCCopyExt (T.Text -> T.Text -> CCmdOutW ()) where
+  contCtxDo cctx _ src dest = shelly $ cp_r (T.unpack src) $ ccRealPath cctx ++ T.unpack dest
+
+-- | Insert a file into the container.
+data CCInsertFile = CCInsertFile
+
+instance CCAction CCInsertFile (T.Text -> LBS.ByteString -> CCmdOutW ()) where
+  contCtxDo cctx _ path = liftIO . LBS.writeFile (ccRealPath cctx ++ T.unpack path)
