@@ -2,9 +2,9 @@
 
 module Main (main) where
 
-import System.Nspawn.Container
 import Control.Monad.Writer.Strict (liftIO)
 import qualified Data.Text.IO as T
+import System.Nspawn.Container
 
 main :: IO ()
 main = do
