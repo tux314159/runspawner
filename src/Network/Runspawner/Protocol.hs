@@ -4,8 +4,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Network.Runspawner.Protocol
-  (
-    ContCmdOut (..),
+  ( ContCmdOut (..),
     PhRequest (..),
     PhResponse,
     packRequest,
