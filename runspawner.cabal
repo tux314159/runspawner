@@ -33,10 +33,12 @@ library
   hs-source-dirs:
       src
   default-extensions:
+      BangPatterns
       DataKinds
       FlexibleContexts
       GADTs
       LambdaCase
+      OverloadedStrings
       PolyKinds
       RankNTypes
       ScopedTypeVariables
@@ -51,6 +53,7 @@ library
     , dlist
     , mtl
     , network ==3.1.*
+    , network-run
     , process
     , serialise
     , shelly
@@ -66,10 +69,12 @@ executable runspawner-exe
   hs-source-dirs:
       app
   default-extensions:
+      BangPatterns
       DataKinds
       FlexibleContexts
       GADTs
       LambdaCase
+      OverloadedStrings
       PolyKinds
       RankNTypes
       ScopedTypeVariables
@@ -84,6 +89,7 @@ executable runspawner-exe
     , dlist
     , mtl
     , network ==3.1.*
+    , network-run
     , process
     , runspawner
     , serialise
@@ -100,10 +106,12 @@ executable toy-exe
   hs-source-dirs:
       app/toy
   default-extensions:
+      BangPatterns
       DataKinds
       FlexibleContexts
       GADTs
       LambdaCase
+      OverloadedStrings
       PolyKinds
       RankNTypes
       ScopedTypeVariables
@@ -118,6 +126,7 @@ executable toy-exe
     , dlist
     , mtl
     , network ==3.1.*
+    , network-run
     , process
     , runspawner
     , serialise
@@ -135,10 +144,12 @@ test-suite runspawner-test
   hs-source-dirs:
       test
   default-extensions:
+      BangPatterns
       DataKinds
       FlexibleContexts
       GADTs
       LambdaCase
+      OverloadedStrings
       PolyKinds
       RankNTypes
       ScopedTypeVariables
@@ -153,6 +164,7 @@ test-suite runspawner-test
     , dlist
     , mtl
     , network ==3.1.*
+    , network-run
     , process
     , runspawner
     , serialise

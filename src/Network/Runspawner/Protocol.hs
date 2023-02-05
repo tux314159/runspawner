@@ -1,7 +1,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE OverloadedStrings #-}
 
 module Network.Runspawner.Protocol
   ( ContCmdOut (..),

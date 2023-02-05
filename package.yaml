@@ -32,6 +32,7 @@ dependencies:
 - store
 - process
 - network >= 3.1 && < 3.2
+- network-run
 
 ghc-options:
 - -Wall
@@ -48,10 +49,12 @@ ghc-options:
 - -fspecialise-aggressively
 
 default-extensions:
+- BangPatterns
 - DataKinds
 - FlexibleContexts
 - GADTs
 - LambdaCase
+- OverloadedStrings
 - PolyKinds
 - RankNTypes
 - ScopedTypeVariables

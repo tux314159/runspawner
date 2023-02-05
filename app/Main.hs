@@ -1,9 +1,6 @@
 module Main (main) where
 
 import Codec.Serialise (deserialiseOrFail, serialise)
-import Control.Concurrent (forkFinally)
-import Control.Exception
-import Control.Monad (forever, void)
 import Control.Monad.Writer.Strict (tell)
 import Data.Binary (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy as LBS
@@ -12,6 +9,7 @@ import Data.Int (Int64)
 import qualified Data.Store as Store
 import qualified Data.Text as T
 import Network.Runspawner.Protocol
+import Network.Run.TCP (runTCPServer)
 import Network.Socket
 import Network.Socket.ByteString.Lazy (recv, sendAll)
 import System.Nspawn.Container
@@ -59,41 +57,3 @@ handleRequest sock = do
               let respBody = serialise (map (Store.decodeEx . LBS.toStrict) contOut :: [PhResponse])
                in encode (LBS.length respBody) `LBS.append` respBody
       return ()
-
--- | Run a TCP server. Taken from network-run.
-runTCPServer :: Maybe HostName -> ServiceName -> (Socket -> IO a) -> IO a
-runTCPServer mhost port server = withSocketsDo $ do
-  addr <- resolve
-  bracket (open addr) close loop
-  where
-    resolve = do
-      let hints = defaultHints {addrFlags = [AI_PASSIVE], addrSocketType = Stream}
-      head <$> getAddrInfo (Just hints) mhost (Just port)
-    open addr = bracketOnError (openSocket addr) close $ \sock -> do
-      setSocketOption sock ReuseAddr 1
-      withFdSocket sock setCloseOnExecIfNeeded
-      bind sock $ addrAddress addr
-      listen sock 1024
-      return sock
-    loop sock = forever $
-      bracketOnError (accept sock) (close . fst) $
-        \(conn, _peer) ->
-          void $ forkFinally (server conn) (const $ gracefulClose conn 5000)
-
--- | Run a TCP client. Taken from network-run.
-runTCPClient :: HostName -> ServiceName -> (Socket -> IO a) -> IO a
-runTCPClient host port client = withSocketsDo $ do
-  addr <- resolve Stream (Just host) port False
-  bracket (open addr) (`gracefulClose` 5000) client
-  where
-    open addr = bracketOnError (openSocket addr) close $ \sock -> do
-      connect sock $ addrAddress addr
-      return sock
-    resolve socketType mhost port passive =
-      head <$> getAddrInfo (Just hints) mhost (Just port)
-      where
-        hints =
-          defaultHints
-            { addrSocketType = socketType,
-              addrFlags = [AI_PASSIVE | passive]
-            }
