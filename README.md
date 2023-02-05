@@ -9,6 +9,9 @@ and launches it, then accepts commands to run in it by communicating
 over a pipe with a small little C server inside. The toy executable
 is just a small program to demonstrate the core library's usage. The
 (unfinished) server does server stuff.
+### Misc.
+We use serialise for transferring things, and store for whatever
+interna serialisation.
 
 ## Building
 Build the main Haskell executeable with `stack`. The small C server in

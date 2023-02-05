@@ -7,21 +7,15 @@ module Protocol
   ( PhRequest (..),
     PhResponse (..),
     packRequest,
-    handleRequest,
   )
 where
 
-import Codec.Serialise (Serialise, deserialiseOrFail, serialise)
-import Container
-import Control.Monad.Writer.Strict
-import Data.Binary (decodeOrFail, encode)
+import Codec.Serialise (Serialise, serialise)
+import Data.Binary (encode)
 import qualified Data.ByteString.Lazy as LBS
-import qualified Data.DList as DL
-import Data.Int (Int64)
+import Data.Store (Store)
 import qualified Data.Text as T
 import GHC.Generics (Generic)
-import Network.Socket
-import Network.Socket.ByteString.Lazy
 
 -- REQUEST PROTOCOL:
 -- The first 8 bytes are an unsigned integer, representing the total
@@ -41,54 +35,20 @@ data PhRequest = PhRequest
   }
   deriving (Generic, Serialise, Show)
 
--- | This data type represent a response to a request.
-data PhResponse = PhResponse
-  { respStdout :: T.Text,
-    respStderr :: T.Text
+-- | Data type representing the output, etc. of a single command.
+data ContCmdOut = ContCmdOut
+  { -- | Everything that was in standard output.
+    ccoStdout :: T.Text,
+    ccoStderr :: T.Text,
+    ccoTiming :: Int
   }
-  deriving (Generic, Serialise, Show)
+  deriving (Generic, Store, Serialise, Show)
+
+-- | This type represent a response to a request.
+type PhResponse = [ContCmdOut]
 
 -- | Pack a CCASerialisable into a single message to be sent over the wire.
 packRequest :: PhRequest -> LBS.ByteString
 packRequest req =
   let s = serialise req
    in encode (LBS.length s) `LBS.append` s
-
-handleRequest :: Socket -> IO ()
-handleRequest sock = do
-  msg <- decodeOrFail <$> recv sock 8
-  case msg of
-    Left (_, _, err) -> putStrLn err
-    Right (_, _, reqLen :: Int64) -> do
-      rawRequest <- recv sock reqLen
-      case deserialiseOrFail rawRequest of
-        Left err -> print err
-        Right (request :: PhRequest) -> do
-          -- Execute the request inside a container.
-          contOut <-
-            withContainer
-              (ContainerBase "/home/isaac/containers/alpine")
-              ( \contDo ->
-                  do
-                    -- Create files.
-                    mapM_
-                      (uncurry $ contDo CCInsertFile)
-                      $ reqFiles request
-                    -- Run each command in sequence.
-                    mapM
-                      ( \s -> do
-                          contDo CCPutStr s
-                          contDo CCWaitShCmd
-                          tell . DL.singleton
-                            =<< (,) <$> contDo CCGetAll CCOut <*> contDo CCGetAll CCErr
-                      )
-                      $ reqCommands request
-              )
-          -- Create our response and send it.
-          let respBody = serialise $ uncurry PhResponse contOut
-          let resp = encode (LBS.length respBody) `LBS.append` respBody
-          sendAll sock resp
-          return ()
-      return ()
-
---recvResponse :: Socket -> IO ()

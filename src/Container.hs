@@ -19,20 +19,18 @@ module Container
     CCCopyExt (..),
     CCOutStream (..),
     CCmdOutW,
-    ContCmdOut,
     withContainer,
   )
 where
 
 import Control.Monad.Writer.Strict
 import qualified Data.ByteString.Lazy as LBS
-import Data.List (intersperse)
 import Data.DList
+import Data.List (intersperse)
 import qualified Data.Text as T
 import Shelly (cp_r, shelly, withTmpDir)
 import System.IO
 import System.Process
-import Data.Bifunctor (bimap)
 
 newtype ContainerBase = ContainerBase {contBasePath :: FilePath}
 
@@ -55,16 +53,13 @@ class CCAction a b | a -> b where
 phpPipePath :: String
 phpPipePath = "/var/lib/pheidippides-job-pipe"
 
--- | Data type representing the output, etc. of a single command.
-type ContCmdOut = (T.Text, T.Text)
-
-type CCmdOutW a = WriterT (DList ContCmdOut) IO a
+type CCmdOutW a = WriterT (DList LBS.ByteString) IO a
 
 -- | Constructs a container context and runs within it a computation.
 withContainer ::
   ContainerBase ->
   ((forall act. forall out. CCAction act out => act -> out) -> CCmdOutW a) ->
-  IO ContCmdOut
+  IO [LBS.ByteString]
 withContainer base computation =
   shelly $
     withTmpDir
@@ -100,7 +95,7 @@ withContainer base computation =
           _ <- liftIO $ waitForProcess ph
 
           liftIO $ hClose jobCtlPipe
-          return . bimap T.concat T.concat . unzip $ toList compWriter
+          return $ toList compWriter
       )
 
 -- Now, we can define some more nice container actions.
