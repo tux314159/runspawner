@@ -1,7 +1,7 @@
 module Main (main) where
 
 import Codec.Serialise (deserialiseOrFail, serialise)
-import Container
+import System.Nspawn.Container
 import Control.Concurrent (forkFinally)
 import Control.Exception
 import Control.Monad (forever, void)
@@ -14,7 +14,7 @@ import Data.Int (Int64)
 import qualified Data.Text as T
 import Network.Socket
 import Network.Socket.ByteString.Lazy (recv, sendAll)
-import Protocol
+import Network.Runspawner.Protocol
 
 main :: IO ()
 main = runTCPServer Nothing "3456" handleRequest

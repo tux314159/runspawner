@@ -1,6 +1,6 @@
-name:                Pheidippides
+name:                runspawner
 version:             0.1.0.0
-github:              "githubuser/Pheidippides"
+github:              "githubuser/runspawner"
 license:             BSD3
 author:              "Author name here"
 maintainer:          "example@example.com"
@@ -17,7 +17,7 @@ extra-source-files:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/githubuser/Pheidippides#readme>
+description:         Please see the README on GitHub at <https://github.com/githubuser/runspawner#readme>
 
 dependencies:
 - base >= 4.7 && < 5
@@ -48,22 +48,22 @@ ghc-options:
 - -fspecialise-aggressively
 
 default-extensions:
-  - DataKinds
-  - FlexibleContexts
-  - GADTs
-  - LambdaCase
-  - PolyKinds
-  - RankNTypes
-  - ScopedTypeVariables
-  - TypeApplications
-  - TypeOperators
-  - TypeFamilies
+- DataKinds
+- FlexibleContexts
+- GADTs
+- LambdaCase
+- PolyKinds
+- RankNTypes
+- ScopedTypeVariables
+- TypeApplications
+- TypeOperators
+- TypeFamilies
 
 library:
   source-dirs: src
 
 executables:
-  Pheidippides-exe:
+  runspawner-exe:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
@@ -71,8 +71,8 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - Pheidippides
-  Toy-exe:
+    - runspawner
+  toy-exe:
     main:                Main.hs
     source-dirs:         app/toy
     ghc-options:
@@ -80,10 +80,10 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - Pheidippides
+    - runspawner
 
 tests:
-  Pheidippides-test:
+  runspawner-test:
     main:                Spec.hs
     source-dirs:         test
     ghc-options:
@@ -91,4 +91,4 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - Pheidippides
+    - runspawner

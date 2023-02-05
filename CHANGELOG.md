@@ -1,4 +1,4 @@
-# Changelog for `Pheidippides`
+# Changelog for `runspawner`
 
 All notable changes to this project will be documented in this file.
 

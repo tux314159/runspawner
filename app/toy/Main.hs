@@ -2,7 +2,7 @@
 
 module Main (main) where
 
-import Container
+import System.Nspawn.Container
 import Control.Monad.Writer.Strict (liftIO)
 import qualified Data.Text.IO as T
 

@@ -5,7 +5,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# OPTIONS_GHC -fexpose-all-unfoldings #-}
 
-module Container
+module System.Nspawn.Container
   ( ContainerBase (..),
     Container (..),
     ContCtx (..),

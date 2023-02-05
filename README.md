@@ -1,4 +1,4 @@
-# Pheidippides
+# runspawner
 This is a small little container coordinator that uses systemd-nspawn
 to launch mini-instances of the same base container.
 

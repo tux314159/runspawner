@@ -3,9 +3,11 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Protocol
-  ( PhRequest (..),
-    PhResponse (..),
+module Network.Runspawner.Protocol
+  (
+    ContCmdOut (..),
+    PhRequest (..),
+    PhResponse,
     packRequest,
   )
 where
