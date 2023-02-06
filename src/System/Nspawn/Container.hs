@@ -138,13 +138,13 @@ instance CCAction CCGetAll (CCOutStream -> CCmdOutW T.Text) where
     let ppe = case stream of
           CCOut -> ccOutPp
           CCErr -> ccErrPp
-     in T.concat <$> getAll (ppe cctx) []
+     in T.concat <$> getAll' (ppe cctx) []
     where
-      getAll ppe s = do
+      getAll' ppe s = do
         isready <- not <$> liftIO (hReady ppe)
         if isready
           then return . reverse . intersperse "\n" $ "" : s
-          else getAll ppe . (: s) =<< contCtxDo cctx CCGetLine stream
+          else getAll' ppe . (: s) =<< contCtxDo cctx CCGetLine stream
 
 -- | Write a string to container stdin.
 data CCPutStr = CCPutStr
