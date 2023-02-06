@@ -1,17 +1,18 @@
 module Main (main) where
 
 import Codec.Serialise (deserialiseOrFail, serialise)
-import Control.Monad.Writer.Strict (tell)
+import Control.Monad.Writer.Strict (liftIO, tell)
 import Data.Binary (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.DList as DL
 import Data.Int (Int64)
 import qualified Data.Store as Store
 import qualified Data.Text as T
-import Network.Runspawner.Protocol
 import Network.Run.TCP (runTCPServer)
+import Network.Runspawner.Protocol
 import Network.Socket
 import Network.Socket.ByteString.Lazy (recv, sendAll)
+import System.Clock (Clock (Monotonic), getTime, toNanoSecs)
 import System.Nspawn.Container
 
 main :: IO ()
@@ -27,7 +28,7 @@ handleRequest sock = do
       rawRequest <- recv sock reqLen
       case deserialiseOrFail rawRequest of
         Left err -> print err
-        Right (request :: PhRequest) -> do
+        Right (request :: Request) -> do
           -- Execute the request inside a container.
           contOut <-
             withContainer
@@ -49,11 +50,16 @@ handleRequest sock = do
           where
             runCmdAndWait :: (forall act out. CCAction act out => act -> out) -> T.Text -> CCmdOutW ()
             runCmdAndWait contDo s = do
+              t0 <- liftIO $ getTime Monotonic
               contDo CCPutStr s
               contDo CCWaitShCmd
+              t1 <- liftIO $ getTime Monotonic
               tell . DL.singleton . LBS.fromStrict . Store.encode
-                =<< (,) <$> contDo CCGetAll CCOut <*> contDo CCGetAll CCErr
+                =<< ContCmdOut
+                  <$> contDo CCGetAll CCOut
+                  <*> contDo CCGetAll CCErr
+                  <*> pure (toNanoSecs (t1 - t0))
             mkResponse contOut =
-              let respBody = serialise (map (Store.decodeEx . LBS.toStrict) contOut :: [PhResponse])
+              let respBody = serialise (map (Store.decodeEx . LBS.toStrict) contOut :: Response)
                in encode (LBS.length respBody) `LBS.append` respBody
       return ()

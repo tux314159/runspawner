@@ -4,8 +4,8 @@
 
 module Network.Runspawner.Protocol
   ( ContCmdOut (..),
-    PhRequest (..),
-    PhResponse,
+    Request (..),
+    Response,
     packRequest,
   )
 where
@@ -22,10 +22,10 @@ import GHC.Generics (Generic)
 -- length of the rest of the payload (excluding those 8 bytes). After
 -- that, the serialised request follows.
 -- RESPONSE PROTOCOL:
--- same as above, but with PhResponse.
+-- same as above, but with Response.
 
 -- | This data type represent a single request to the server.
-data PhRequest = PhRequest
+data Request = Request
   { -- | commands to be sent to run in order
     reqCommands :: [T.Text],
     -- | extra files to be inserted into container (Path, contents)
@@ -39,16 +39,18 @@ data PhRequest = PhRequest
 data ContCmdOut = ContCmdOut
   { -- | Everything that was in standard output.
     ccoStdout :: T.Text,
+    -- | Everything that was in standard error.
     ccoStderr :: T.Text,
-    ccoTiming :: Int
+    -- | Time it took to run each command, in nanoseconds(!)
+    ccoTiming :: Integer
   }
   deriving (Generic, Store, Serialise, Show)
 
 -- | This type represent a response to a request.
-type PhResponse = [ContCmdOut]
+type Response = [ContCmdOut]
 
 -- | Pack a CCASerialisable into a single message to be sent over the wire.
-packRequest :: PhRequest -> LBS.ByteString
+packRequest :: Request -> LBS.ByteString
 packRequest req =
   let s = serialise req
    in encode (LBS.length s) `LBS.append` s

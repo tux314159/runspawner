@@ -50,6 +50,7 @@ library
       base >=4.7 && <5
     , binary
     , bytestring
+    , clock
     , dlist
     , mtl
     , network ==3.1.*
@@ -86,6 +87,7 @@ executable runspawner-exe
       base >=4.7 && <5
     , binary
     , bytestring
+    , clock
     , dlist
     , mtl
     , network ==3.1.*
@@ -123,6 +125,7 @@ executable toy-exe
       base >=4.7 && <5
     , binary
     , bytestring
+    , clock
     , dlist
     , mtl
     , network ==3.1.*
@@ -161,6 +164,7 @@ test-suite runspawner-test
       base >=4.7 && <5
     , binary
     , bytestring
+    , clock
     , dlist
     , mtl
     , network ==3.1.*
