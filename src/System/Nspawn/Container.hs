@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# OPTIONS_GHC -fexpose-all-unfoldings #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module System.Nspawn.Container
   ( ContainerBase (..),
@@ -22,6 +23,7 @@ module System.Nspawn.Container
   )
 where
 
+import Control.Monad.Except
 import Control.Monad.Writer.Strict
 import qualified Data.ByteString.Lazy as LBS
 import Data.DList
@@ -52,20 +54,20 @@ class CCAction a b | a -> b where
 phpPipePath :: String
 phpPipePath = "/var/lib/pheidippides-job-pipe"
 
-type CCmdOutW a = WriterT (DList LBS.ByteString) IO a
+type CCmdOutW a = WriterT (DList LBS.ByteString) (ExceptT T.Text IO) a
 
 -- | Constructs a container context and runs within it a computation.
 withContainer ::
+  (MonadIO m) =>
   ContainerBase ->
   ((forall act. forall out. CCAction act out => act -> out) -> CCmdOutW a) ->
-  IO [LBS.ByteString]
-withContainer base computation =
+  m (Either T.Text [LBS.ByteString])
+withContainer base computation = do
   shelly $
     withTmpDir
-      ( \tdir -> do
-          let contPath = tdir ++ "/cont"
-
+      ( \contPath -> do
           -- Copy base container to temp container.
+          liftIO $ callProcess "/bin/rmdir" [contPath]
           liftIO $ callProcess "/bin/cp" ["-R", contBasePath base, contPath]
 
           -- Start the container.
@@ -84,17 +86,20 @@ withContainer base computation =
           liftIO $ mapM_ (`hSetBuffering` LineBuffering) [inpipe, outpipe, errpipe]
 
           -- Now we run the computation.
-          compWriter <-
+          compWriter' <-
             liftIO $
-              execWriterT
-                ( computation $
+              runExceptT $
+                execWriterT $
+                  computation $
                     contCtxDo $
                       ContCtx inpipe outpipe errpipe contPath jobCtlPipe
-                )
+                  
           _ <- liftIO $ waitForProcess ph
 
           liftIO $ hClose jobCtlPipe
-          return $ toList compWriter
+          case compWriter' of
+            Left err -> return $ Left err
+            Right compWriter -> return . Right $ toList compWriter
       )
 
 -- Now, we can define some more nice container actions.
