@@ -12,15 +12,15 @@ main = do
     withContainer
       (ContainerBase "/home/isaac/containers/alpine")
       ( \contDo -> do
-          contDo CCPutStr "echo hi\n"
-          contDo CCWaitShCmd
-          liftIO . T.putStr =<< contDo CCGetLine CCOut
-
-          contDo CCPutStr "echo bye\n"
+          contDo CCPutStrLn "echo hi"
           contDo CCWaitShCmd
           liftIO . T.putStrLn =<< contDo CCGetLine CCOut
 
-          contDo CCPutStr "ls\n"
+          contDo CCPutStrLn "echo bye"
+          contDo CCWaitShCmd
+          liftIO . T.putStrLn =<< contDo CCGetLine CCOut
+
+          contDo CCPutStrLn "ls"
           contDo CCWaitShCmd
           liftIO . T.putStr =<< contDo CCGetAll CCOut
 

@@ -66,7 +66,7 @@ handleRequest sock = do
             runCmdAndWait :: (forall act out. CCAction act out => act -> out) -> T.Text -> CCmdOutW ()
             runCmdAndWait contDo s = do
               t0 <- liftIO $ getTime Monotonic
-              contDo CCPutStr s
+              contDo CCPutStrLn s
               contDo CCWaitShCmd
               t1 <- liftIO $ getTime Monotonic
               tell . DL.singleton . LBS.fromStrict . Store.encode

@@ -15,6 +15,7 @@ module System.Nspawn.Container
     CCGetChar (..),
     CCInsertFile (..),
     CCPutStr (..),
+    CCPutStrLn (..),
     CCWaitShCmd (..),
     CCCopyExt (..),
     CCOutStream (..),
@@ -158,6 +159,12 @@ instance CCAction CCPutStr (T.Text -> CCmdOutW ()) where
   contCtxDo cctx _ s = do
     liftIO $ hPutStr (ccInPp cctx) $ T.unpack s
     liftIO $ hFlush $ ccInPp cctx
+
+-- | Write a string + newline to container stdin.
+data CCPutStrLn = CCPutStrLn
+
+instance CCAction CCPutStrLn (T.Text -> CCmdOutW ()) where
+  contCtxDo cctx _ s = contCtxDo cctx CCPutStr $ s <> "\n"
 
 -- | Wait for the current command to be done executing.
 data CCWaitShCmd = CCWaitShCmd
