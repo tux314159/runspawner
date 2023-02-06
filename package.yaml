@@ -78,11 +78,12 @@ executables:
     - runspawner
   toy-exe:
     main:                Main.hs
-    source-dirs:         app/toy
+    source-dirs:         app/Toy
     ghc-options:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -main-is Toy.Main
     dependencies:
     - runspawner
 

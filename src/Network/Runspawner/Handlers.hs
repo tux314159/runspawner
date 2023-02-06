@@ -11,7 +11,6 @@ import Control.Monad.Except (MonadError, throwError)
 import qualified Data.Binary as B
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.DList as DL
-import Data.Int (Int64)
 import qualified Data.Store as Store
 import qualified Data.Text as T
 import Network.Runspawner.Protocol
@@ -26,7 +25,7 @@ getResponse sock = do
   respLen' <- B.decodeOrFail <$> liftIO (recv sock 8)
   case respLen' of
     Left (_, _, err) -> throwError err
-    Right (_, _, respLen :: Int64) -> do
+    Right (_, _, respLen) -> do
       rawResponse <- liftIO $ recv sock respLen
       case deserialiseOrFail rawResponse of
         Left err -> throwError $ show err
@@ -38,7 +37,7 @@ handleRequest sock = do
   msg <- B.decodeOrFail <$> liftIO (recv sock 8)
   case msg of
     Left (_, _, err) -> throwError err
-    Right (_, _, reqLen :: Int64) -> do
+    Right (_, _, reqLen) -> do
       rawRequest <- liftIO $ recv sock reqLen
       case deserialiseOrFail rawRequest of
         Left err -> throwError $ show err
@@ -72,8 +71,8 @@ handleRequest sock = do
                 =<< ContCmdOut
                   <$> contDo CCGetAll CCOut
                   <*> contDo CCGetAll CCErr
-                  <*> pure (toNanoSecs (t1 - t0))
+                  <*> pure (toNanoSecs $ t1 - t0)
             mkResponse contOut =
               let respBody = serialise (map (Store.decodeEx . LBS.toStrict) contOut :: Response)
-               in B.encode (LBS.length respBody) `LBS.append` respBody
+               in B.encode (LBS.length respBody) <> respBody
       return ()

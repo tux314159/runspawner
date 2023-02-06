@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Main (main) where
+module Toy.Main (main) where
 
 import Control.Monad.Writer.Strict (liftIO)
 import qualified Data.Text.IO as T
