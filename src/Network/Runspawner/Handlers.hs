@@ -5,9 +5,9 @@ module Network.Runspawner.Handlers
 where
 
 import Codec.Serialise (deserialiseOrFail, serialise)
-import Control.Monad.Writer.Strict (liftIO, tell)
-import Control.Monad.Trans (MonadIO)
 import Control.Monad.Except (MonadError, throwError)
+import Control.Monad.Trans (MonadIO)
+import Control.Monad.Writer.Strict (liftIO, tell)
 import qualified Data.Binary as B
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.DList as DL
@@ -44,19 +44,20 @@ handleRequest sock = do
         Right (request :: Request) -> do
           -- Execute the request inside a container.
           contOut' <-
-            liftIO $ withContainer
-              (ContainerBase "/home/isaac/containers/alpine")
-              ( \contDo ->
-                  do
-                    -- Create files.
-                    mapM_
-                      (uncurry $ contDo CCInsertFile)
-                      $ reqFiles request
-                    -- Run each command in sequence.
-                    mapM
-                      (runCmdAndWait contDo)
-                      $ reqCommands request
-              )
+            liftIO $
+              withContainer
+                (ContainerBase "/home/isaac/containers/alpine")
+                ( \contDo ->
+                    do
+                      -- Create files.
+                      mapM_
+                        (uncurry $ contDo CCInsertFile)
+                        $ reqFiles request
+                      -- Run each command in sequence.
+                      mapM
+                        (runCmdAndWait contDo)
+                        $ reqCommands request
+                )
           -- Create our response and send it.
           case contOut' of
             Left err -> throwError err
