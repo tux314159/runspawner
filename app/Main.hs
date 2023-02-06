@@ -9,4 +9,6 @@ import Network.Runspawner.Handlers (handleRequest)
 main :: IO ()
 main = void $
   runTCPServer Nothing "3456" $
-    \s -> runExceptT $ handleRequest s `catchError` (lift . putStrLn . T.unpack)
+    \s ->
+      runExceptT $
+        handleRequest s `catchError` (lift . putStrLn . T.unpack)

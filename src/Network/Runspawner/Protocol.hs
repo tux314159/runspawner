@@ -53,4 +53,4 @@ type Response = [ContCmdOut]
 packRequest :: Request -> LBS.ByteString
 packRequest req =
   let s = serialise req
-   in encode (LBS.length s) `LBS.append` s
+   in encode (LBS.length s) <> s

@@ -3,7 +3,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# OPTIONS_GHC -fexpose-all-unfoldings #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 
 module System.Nspawn.Container
   ( ContainerBase (..),
@@ -94,7 +93,7 @@ withContainer base computation = do
                   computation $
                     contCtxDo $
                       ContCtx inpipe outpipe errpipe contPath jobCtlPipe
-                  
+
           _ <- liftIO $ waitForProcess ph
 
           liftIO $ hClose jobCtlPipe
@@ -108,33 +107,23 @@ withContainer base computation = do
 -- | Selector for container stdout or stderr.
 data CCOutStream = CCOut | CCErr
 
+selectStream :: CCOutStream -> (ContCtx -> Handle)
+selectStream CCOut = ccOutPp
+selectStream CCErr = ccErrPp
+
 -- | Read one char from container stdout.
 data CCGetChar = CCGetChar
 
 instance CCAction CCGetChar (CCOutStream -> CCmdOutW Char) where
   contCtxDo cctx _ stream =
-    liftIO $
-      hGetChar $
-        ( case stream of
-            CCOut -> ccOutPp
-            CCErr -> ccErrPp
-        )
-          cctx
+    liftIO . hGetChar $ selectStream stream cctx
 
 -- | Read one line from container stdout, omitting the trailing newline.
 data CCGetLine = CCGetLine
 
 instance CCAction CCGetLine (CCOutStream -> CCmdOutW T.Text) where
   contCtxDo cctx _ stream =
-    T.pack
-      <$> liftIO
-        ( hGetLine $
-            ( case stream of
-                CCOut -> ccOutPp
-                CCErr -> ccErrPp
-            )
-              cctx
-        )
+    T.pack <$> (liftIO . hGetLine $ selectStream stream cctx)
 
 -- | Read everything from container stdout.
 data CCGetAll = CCGetAll
