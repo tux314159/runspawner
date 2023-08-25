@@ -22,10 +22,14 @@ description:         Please see the README on GitHub at <https://github.com/tux3
 dependencies:
 - base >= 4.7 && < 5
 - clock
+- dlist
 - text
 - mtl
 - process
-- servant
+- directory
+- filepath
+- temporary
+- unix
 
 ghc-options:
 - -Wall

@@ -12,7 +12,6 @@ module System.Nspawn.Container
     CCGetAll (..),
     CCGetLine (..),
     CCGetChar (..),
-    CCInsertFile (..),
     CCPutStr (..),
     CCPutStrLn (..),
     CCWaitShCmd (..),
@@ -25,14 +24,31 @@ where
 
 import Control.Monad.Except
 import Control.Monad.Writer.Strict
-import qualified Data.ByteString.Lazy as LBS
-import Data.DList
+import Data.DList (DList, toList)
 import Data.List (intersperse)
 import qualified Data.Text as T
-import Shelly (cp_r, shelly, withTmpDir)
+import System.Directory
+import System.FilePath
 import System.IO
+import System.IO.Temp
 import System.Process
+import System.Posix.Files
 
+-- | Copy a directory recursively.
+copyDirRecursive :: FilePath -> FilePath -> IO ()
+copyDirRecursive src dest = do
+  createDirectory dest
+  copyPermissions src dest
+  files <- listDirectory src
+  doesFileExist ? copyFileWithMetadata `forAll` files
+  doesDirectoryExist &&&^ (not ..^ pathIsSymbolicLink) ? copyDirRecursive `forAll` files
+  where
+    f ..^ g = pure . f <=< g
+    f &&&^ g = \x -> do a <- f x; b <- g x; pure $ a && b
+    (?) cond act f = cond (src </> f) >>= (`when` act (src </> f) (dest </> f))
+    forAll = mapM_
+
+-- | Create a temporary directory.
 newtype ContainerBase = ContainerBase {contBasePath :: FilePath}
 
 data Container = Container {contBase :: ContainerBase, contInst :: FilePath}
@@ -51,56 +67,56 @@ class CCAction a b | a -> b where
   contCtxDo :: ContCtx -> a -> b
 
 -- | Where our job-control pipe is
-phpPipePath :: String
-phpPipePath = "/var/lib/pheidippides-job-pipe"
+jobPipePath :: String
+jobPipePath = "/var/lib/runspawner-job-pipe"
 
-type CCmdOutW a = WriterT (DList LBS.ByteString) (ExceptT T.Text IO) a
+type CCmdOutW a = WriterT (DList T.Text) (ExceptT T.Text IO) a
 
 -- | Constructs a container context and runs within it a computation.
 withContainer ::
   (MonadIO m) =>
   ContainerBase ->
   ((forall act. forall out. CCAction act out => act -> out) -> CCmdOutW a) ->
-  m (Either T.Text [LBS.ByteString])
+  m (Either T.Text [T.Text])
 withContainer base computation = do
-  shelly $
-    withTmpDir
-      ( \contPath -> do
-          -- Copy base container to temp container.
-          liftIO $ callProcess "/bin/rmdir" [contPath]
-          liftIO $ callProcess "/bin/cp" ["-R", contBasePath base, contPath]
+  liftIO $ withSystemTempDirectory ""
+    ( \contPath -> do
+        -- Copy base container to temp container.
+        removeDirectory contPath
+        copyDirRecursive (contBasePath base) contPath
 
-          -- Start the container.
-          (Just inpipe, Just outpipe, Just errpipe, ph) <-
-            liftIO . createProcess $
-              (proc "systemd-nspawn" ["-q", "--console=interactive", "-D", contPath, "/bin/sherver"])
-                { std_in = CreatePipe,
-                  std_out = CreatePipe,
-                  std_err = CreatePipe
-                }
-          _ <- liftIO $ hGetLine outpipe -- empty line emitted by shserver to signal ready
-          jobCtlPipe <- liftIO $ openFile (contPath ++ phpPipePath) ReadMode
+        -- Create the job pipe.
+        createNamedPipe (contPath ++ jobPipePath) $ stdFileMode `unionFileModes` namedPipeMode
+        -- Start the container.
+        (Just inpipe, Just outpipe, Just errpipe, ph) <-
+          createProcess $
+            (proc "systemd-nspawn" ["-q", "--console=interactive", "-D", contPath, "/bin/sherver"])
+              { std_in = CreatePipe,
+                std_out = CreatePipe,
+                std_err = CreatePipe
+              }
+        _ <- hGetLine outpipe -- empty line emitted by sherver to signal ready
+        jobCtlPipe <- openFile (contPath ++ jobPipePath) ReadMode
+        -- Set modes.
 
-          -- Set modes.
-          liftIO $ mapM_ (`hSetBinaryMode` True) [inpipe, outpipe, errpipe]
-          liftIO $ mapM_ (`hSetBuffering` LineBuffering) [inpipe, outpipe, errpipe]
+        mapM_ (`hSetBinaryMode` True) [inpipe, outpipe, errpipe]
+        mapM_ (`hSetBuffering` LineBuffering) [inpipe, outpipe, errpipe]
 
-          -- Now we run the computation.
-          compWriter' <-
-            liftIO $
-              runExceptT $
-                execWriterT $
-                  computation $
-                    contCtxDo $
-                      ContCtx inpipe outpipe errpipe contPath jobCtlPipe
+        -- Now we run the computation.
+        compWriter' <-
+          runExceptT $
+            execWriterT $
+              computation $
+                contCtxDo $
+                  ContCtx inpipe outpipe errpipe contPath jobCtlPipe
 
-          _ <- liftIO $ waitForProcess ph
+        _ <- waitForProcess ph
 
-          liftIO $ hClose jobCtlPipe
-          case compWriter' of
-            Left err -> return $ Left err
-            Right compWriter -> return . Right $ toList compWriter
-      )
+        hClose jobCtlPipe
+        case compWriter' of
+          Left err -> pure $ Left err
+          Right compWriter -> pure . Right $ toList compWriter
+    )
 
 -- Now, we can define some more nice container actions.
 
@@ -138,7 +154,7 @@ instance CCAction CCGetAll (CCOutStream -> CCmdOutW T.Text) where
       getAll' ppe s = do
         isready <- not <$> liftIO (hReady ppe)
         if isready
-          then return . reverse . intersperse "\n" $ "" : s
+          then pure . reverse . intersperse "\n" $ "" : s
           else getAll' ppe . (: s) =<< contCtxDo cctx CCGetLine stream
 
 -- | Write a string to container stdin.
@@ -165,10 +181,4 @@ instance CCAction CCWaitShCmd (CCmdOutW ()) where
 data CCCopyExt = CCCopyExt
 
 instance CCAction CCCopyExt (T.Text -> T.Text -> CCmdOutW ()) where
-  contCtxDo cctx _ src dest = shelly $ cp_r (T.unpack src) $ ccRealPath cctx ++ T.unpack dest
-
--- | Insert a file into the container.
-data CCInsertFile = CCInsertFile
-
-instance CCAction CCInsertFile (T.Text -> LBS.ByteString -> CCmdOutW ()) where
-  contCtxDo cctx _ path = liftIO . LBS.writeFile (ccRealPath cctx ++ T.unpack path)
+  contCtxDo cctx _ src dest = liftIO $ copyDirRecursive (T.unpack src) $ ccRealPath cctx ++ T.unpack dest

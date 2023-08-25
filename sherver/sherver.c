@@ -23,7 +23,7 @@
 
 #define BUFSZ 1024
 
-const char job_pipe_path[] = "/var/lib/pheidippides-job-pipe";
+const char job_pipe_path[] = "/var/lib/runspawner-job-pipe";
 
 int main(void)
 {
@@ -35,8 +35,6 @@ int main(void)
 	raw.c_cflag |= (CS8);
 	raw.c_lflag &= ~(ECHO | IEXTEN | ISIG);
 	tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
-	// Create the job fifo.
-	mkfifo(job_pipe_path, O_RDWR);
 	// We are ready.
 	write(STDOUT_FILENO, "\n", 1);
 
@@ -60,5 +58,4 @@ int main(void)
 	}
 
 	close(job_ppe);
-	unlink(job_pipe_path);
 }
