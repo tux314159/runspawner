@@ -21,17 +21,11 @@ description:         Please see the README on GitHub at <https://github.com/tux3
 
 dependencies:
 - base >= 4.7 && < 5
-- binary
 - clock
-- bytestring
-- dlist
-- serialise
 - text
 - mtl
-- shelly
-- store
 - process
-- network >= 3.1 && < 3.2
+- network
 
 ghc-options:
 - -Wall
