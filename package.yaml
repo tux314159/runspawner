@@ -25,7 +25,7 @@ dependencies:
 - text
 - mtl
 - process
-- network
+- servant
 
 ghc-options:
 - -Wall

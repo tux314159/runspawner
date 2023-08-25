@@ -1,21 +1,13 @@
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE ExistentialQuantification #-}
 
 module Network.Runspawner.Protocol
   ( ContCmdOut (..),
     Request (..),
     Response,
-    packRequest,
   )
 where
 
-import Codec.Serialise (Serialise, serialise)
-import Data.Binary (encode)
-import qualified Data.ByteString.Lazy as LBS
-import Data.Store (Store)
 import qualified Data.Text as T
-import GHC.Generics (Generic)
 
 -- REQUEST PROTOCOL:
 -- The first 8 bytes are an unsigned integer, representing the total
@@ -33,7 +25,7 @@ data Request = Request
     --   WARNING: this could overwrite files!
     reqFiles :: [(T.Text, LBS.ByteString)]
   }
-  deriving (Generic, Serialise, Show)
+  deriving (Serialise, Show)
 
 -- | Data type representing the output, etc. of a single command.
 data ContCmdOut = ContCmdOut
@@ -44,13 +36,7 @@ data ContCmdOut = ContCmdOut
     -- | Time it took to run each command, in nanoseconds(!)
     ccoTiming :: Integer
   }
-  deriving (Generic, Store, Serialise, Show)
+  deriving (Show)
 
 -- | This type represent a response to a request.
 type Response = [ContCmdOut]
-
--- | Pack a CCASerialisable into a single message to be sent over the wire.
-packRequest :: Request -> LBS.ByteString
-packRequest req =
-  let s = serialise req
-   in encode (LBS.length s) <> s
