@@ -40,13 +40,14 @@ copyDirRecursive src dest = do
   createDirectory dest
   copyPermissions src dest
   files <- listDirectory src
-  doesFileExist ? copyFileWithMetadata `forAll` files
-  doesDirectoryExist &&&^ (not ..^ pathIsSymbolicLink) ? copyDirRecursive `forAll` files
+  doesFileExist? copyFileWithMetadata `forAll` files
+  doesNonSymlinkedDirectoryExist? copyDirRecursive `forAll` files
   where
     f ..^ g = pure . f <=< g
     f &&&^ g = \x -> do a <- f x; b <- g x; pure $ a && b
     (?) cond act f = cond (src </> f) >>= (`when` act (src </> f) (dest </> f))
     forAll = mapM_
+    doesNonSymlinkedDirectoryExist = doesDirectoryExist &&&^ (not ..^ pathIsSymbolicLink)
 
 -- | Create a temporary directory.
 newtype ContainerBase = ContainerBase {contBasePath :: FilePath}
