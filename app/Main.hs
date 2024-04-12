@@ -1,7 +1,7 @@
 module Main (main) where
 
 import Control.Monad (void)
-import Control.Monad.Except (catchError, lift, runExceptT)
+import Control.Monad.Except (catchError, runExceptT)
 import qualified Data.Text as T
 
 main :: IO ()

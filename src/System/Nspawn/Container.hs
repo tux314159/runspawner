@@ -33,6 +33,7 @@ import System.IO
 import System.IO.Temp
 import System.Process
 import System.Posix.Files
+import Control.Monad ((<=<), when, void)
 
 -- | Copy a directory recursively.
 copyDirRecursive :: FilePath -> FilePath -> IO ()
