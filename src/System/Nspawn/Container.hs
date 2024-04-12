@@ -35,7 +35,7 @@ import System.Process
 import System.Posix.Files
 import Control.Monad ((<=<), when, void)
 
--- | Copy a directory recursively.
+-- | Copy a directory recursively
 copyDirRecursive :: FilePath -> FilePath -> IO ()
 copyDirRecursive src dest = do
   createDirectory dest
@@ -50,12 +50,12 @@ copyDirRecursive src dest = do
     forAll = mapM_
     doesNonSymlinkedDirectoryExist = doesDirectoryExist &&&^ (not ..^ pathIsSymbolicLink)
 
--- | Create a temporary directory.
+-- | Create a temporary directory
 newtype ContainerBase = ContainerBase {contBasePath :: FilePath}
 
 data Container = Container {contBase :: ContainerBase, contInst :: FilePath}
 
--- | Contains all info about a container needed for its functions.
+-- | Contains all info about a container needed for its functions
 data ContCtx = ContCtx
   { ccInPp :: Handle,
     ccOutPp :: Handle,
@@ -64,7 +64,7 @@ data ContCtx = ContCtx
     ccJobCtlPipe :: Handle
   }
 
--- | Typeclass representing all actions on a container.
+-- | Typeclass representing all actions on a container
 class CCAction a b | a -> b where
   contCtxDo :: ContCtx -> a -> b
 
@@ -74,7 +74,7 @@ jobPipePath = "/var/lib/runspawner-job-pipe"
 
 type CCmdOutW a = WriterT (DList T.Text) (ExceptT T.Text IO) a
 
--- | Constructs a container context and runs within it a computation.
+-- | Constructs a container context and runs within it a computation
 withContainer ::
   (MonadIO m) =>
   ContainerBase ->
@@ -83,28 +83,28 @@ withContainer ::
 withContainer base computation = do
   liftIO $ withSystemTempDirectory ""
     ( \contPath -> do
-        -- Copy base container to temp container.
+        -- Copy base container to temp container
         removeDirectory contPath
         copyDirRecursive (contBasePath base) contPath
 
-        -- Create the job pipe.
+        -- Create the job pipe
         createNamedPipe (contPath ++ jobPipePath) $ stdFileMode `unionFileModes` namedPipeMode
-        -- Start the container.
+        -- Start the container
         (Just inpipe, Just outpipe, Just errpipe, ph) <-
           createProcess $
-            (proc "systemd-nspawn" ["-q", "--console=interactive", "-D", contPath, "/bin/sherver"])
+            (proc "systemd-nspawn" ["-q", "--console=interactive", "--private-users=yes", "--private-network", "--drop-capability=all", "-D", contPath, "/bin/sherver"])
               { std_in = CreatePipe,
                 std_out = CreatePipe,
                 std_err = CreatePipe
               }
         _ <- hGetLine outpipe -- empty line emitted by sherver to signal ready
         jobCtlPipe <- openFile (contPath ++ jobPipePath) ReadMode
-        -- Set modes.
+        -- Set modes
 
         mapM_ (`hSetBinaryMode` True) [inpipe, outpipe, errpipe]
         mapM_ (`hSetBuffering` LineBuffering) [inpipe, outpipe, errpipe]
 
-        -- Now we run the computation.
+        -- Now we run the computation
         compWriter' <-
           runExceptT $
             execWriterT $
@@ -120,30 +120,30 @@ withContainer base computation = do
           Right compWriter -> pure . Right $ toList compWriter
     )
 
--- Now, we can define some more nice container actions.
+-- Now, we can define some more nice container actions
 
--- | Selector for container stdout or stderr.
+-- | Selector for container stdout or stderr
 data CCOutStream = CCOut | CCErr
 
 selectStream :: CCOutStream -> (ContCtx -> Handle)
 selectStream CCOut = ccOutPp
 selectStream CCErr = ccErrPp
 
--- | Read one char from container stdout.
+-- | Read one char from container stdout
 data CCGetChar = CCGetChar
 
 instance CCAction CCGetChar (CCOutStream -> CCmdOutW Char) where
   contCtxDo cctx _ stream =
     liftIO . hGetChar $ selectStream stream cctx
 
--- | Read one line from container stdout, omitting the trailing newline.
+-- | Read one line from container stdout, omitting the trailing newline
 data CCGetLine = CCGetLine
 
 instance CCAction CCGetLine (CCOutStream -> CCmdOutW T.Text) where
   contCtxDo cctx _ stream =
     T.pack <$> (liftIO . hGetLine $ selectStream stream cctx)
 
--- | Read everything from container stdout.
+-- | Read everything from container stdout
 data CCGetAll = CCGetAll
 
 instance CCAction CCGetAll (CCOutStream -> CCmdOutW T.Text) where
@@ -159,7 +159,7 @@ instance CCAction CCGetAll (CCOutStream -> CCmdOutW T.Text) where
           then pure . reverse . intersperse "\n" $ "" : s
           else getAll' ppe . (: s) =<< contCtxDo cctx CCGetLine stream
 
--- | Write a string to container stdin.
+-- | Write a string to container stdin
 data CCPutStr = CCPutStr
 
 instance CCAction CCPutStr (T.Text -> CCmdOutW ()) where
@@ -167,19 +167,19 @@ instance CCAction CCPutStr (T.Text -> CCmdOutW ()) where
     liftIO $ hPutStr (ccInPp cctx) $ T.unpack s
     liftIO $ hFlush $ ccInPp cctx
 
--- | Write a string + newline to container stdin.
+-- | Write a string + newline to container stdin
 data CCPutStrLn = CCPutStrLn
 
 instance CCAction CCPutStrLn (T.Text -> CCmdOutW ()) where
   contCtxDo cctx _ s = contCtxDo cctx CCPutStr $ s <> "\n"
 
--- | Wait for the current command to be done executing.
+-- | Wait for the current command to be done executing
 data CCWaitShCmd = CCWaitShCmd
 
 instance CCAction CCWaitShCmd (CCmdOutW ()) where
   contCtxDo cctx _ = void $ liftIO $ hGetChar (ccJobCtlPipe cctx)
 
--- | Copy a file/dir recursively from the outside into the container.
+-- | Copy a file/dir recursively from the outside into the container
 data CCCopyExt = CCCopyExt
 
 instance CCAction CCCopyExt (T.Text -> T.Text -> CCmdOutW ()) where
