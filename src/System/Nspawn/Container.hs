@@ -22,8 +22,9 @@ module System.Nspawn.Container
   )
 where
 
-import Control.Monad.Except
-import Control.Monad.Writer.Strict
+import Control.Monad (void, when, (<=<))
+import Control.Monad.Except (runExceptT, ExceptT)
+import Control.Monad.Writer.Strict (execWriterT, MonadIO(..), WriterT)
 import Data.DList (DList, toList)
 import Data.List (intersperse)
 import qualified Data.Text as T
@@ -31,9 +32,8 @@ import System.Directory
 import System.FilePath
 import System.IO
 import System.IO.Temp
-import System.Process
 import System.Posix.Files
-import Control.Monad ((<=<), when, void)
+import System.Process
 
 -- | Copy a directory recursively
 copyDirRecursive :: FilePath -> FilePath -> IO ()
@@ -41,8 +41,8 @@ copyDirRecursive src dest = do
   createDirectory dest
   copyPermissions src dest
   files <- listDirectory src
-  doesFileExist? copyFileWithMetadata `forAll` files
-  doesNonSymlinkedDirectoryExist? copyDirRecursive `forAll` files
+  doesFileExist ? copyFileWithMetadata `forAll` files
+  doesNonSymlinkedDirectoryExist ? copyDirRecursive `forAll` files
   where
     f ..^ g = pure . f <=< g
     f &&&^ g = \x -> do a <- f x; b <- g x; pure $ a && b
@@ -81,44 +81,46 @@ withContainer ::
   ((forall act. forall out. CCAction act out => act -> out) -> CCmdOutW a) ->
   m (Either T.Text [T.Text])
 withContainer base computation = do
-  liftIO $ withSystemTempDirectory ""
-    ( \contPath -> do
-        -- Copy base container to temp container
-        removeDirectory contPath
-        copyDirRecursive (contBasePath base) contPath
+  liftIO $
+    withSystemTempDirectory
+      ""
+      ( \contPath -> do
+          -- Copy base container to temp container
+          removeDirectory contPath
+          copyDirRecursive (contBasePath base) contPath
 
-        -- Create the job pipe
-        createNamedPipe (contPath ++ jobPipePath) $ stdFileMode `unionFileModes` namedPipeMode
-        -- Start the container
-        (Just inpipe, Just outpipe, Just errpipe, ph) <-
-          createProcess $
-            (proc "systemd-nspawn" ["-q", "--console=interactive", "--private-users=yes", "--private-network", "--drop-capability=all", "-D", contPath, "/bin/sherver"])
-              { std_in = CreatePipe,
-                std_out = CreatePipe,
-                std_err = CreatePipe
-              }
-        _ <- hGetLine outpipe -- empty line emitted by sherver to signal ready
-        jobCtlPipe <- openFile (contPath ++ jobPipePath) ReadMode
-        -- Set modes
+          -- Create the job pipe
+          createNamedPipe (contPath ++ jobPipePath) $ stdFileMode `unionFileModes` namedPipeMode
+          -- Start the container
+          (Just inpipe, Just outpipe, Just errpipe, ph) <-
+            createProcess $
+              (proc "systemd-nspawn" ["-q", "--console=interactive", "--private-users=yes", "--private-network", "--drop-capability=all", "-D", contPath, "/bin/sherver"])
+                { std_in = CreatePipe,
+                  std_out = CreatePipe,
+                  std_err = CreatePipe
+                }
+          _ <- hGetLine outpipe -- empty line emitted by sherver to signal ready
+          jobCtlPipe <- openFile (contPath ++ jobPipePath) ReadMode
+          -- Set modes
 
-        mapM_ (`hSetBinaryMode` True) [inpipe, outpipe, errpipe]
-        mapM_ (`hSetBuffering` LineBuffering) [inpipe, outpipe, errpipe]
+          mapM_ (`hSetBinaryMode` True) [inpipe, outpipe, errpipe]
+          mapM_ (`hSetBuffering` LineBuffering) [inpipe, outpipe, errpipe]
 
-        -- Now we run the computation
-        compWriter' <-
-          runExceptT $
-            execWriterT $
-              computation $
-                contCtxDo $
-                  ContCtx inpipe outpipe errpipe contPath jobCtlPipe
+          -- Now we run the computation
+          compWriter' <-
+            runExceptT $
+              execWriterT $
+                computation $
+                  contCtxDo $
+                    ContCtx inpipe outpipe errpipe contPath jobCtlPipe
 
-        _ <- waitForProcess ph
+          _ <- waitForProcess ph
 
-        hClose jobCtlPipe
-        case compWriter' of
-          Left err -> pure $ Left err
-          Right compWriter -> pure . Right $ toList compWriter
-    )
+          hClose jobCtlPipe
+          case compWriter' of
+            Left err -> pure $ Left err
+            Right compWriter -> pure . Right $ toList compWriter
+      )
 
 -- Now, we can define some more nice container actions
 
