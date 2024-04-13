@@ -83,11 +83,12 @@ withContainer ::
 withContainer base computation = do
   liftIO $
     withSystemTempDirectory
-      ""
+      "runspawner"
       ( \contPath -> do
           -- Copy base container to temp container
           removeDirectory contPath
           copyDirRecursive (contBasePath base) contPath
+          copyFile  "sherver/sherver" (contPath </> "bin/sherver")
 
           -- Create the job pipe
           createNamedPipe (contPath ++ jobPipePath) $ stdFileMode `unionFileModes` namedPipeMode
