@@ -21,6 +21,7 @@ description:         Please see the README on GitHub at <https://github.com/tux3
 
 dependencies:
 - base >= 4.7 && < 5
+- bytestring
 - clock
 - dlist
 - text
@@ -30,6 +31,12 @@ dependencies:
 - filepath
 - temporary
 - unix
+- aeson
+- servant
+- servant-server
+- http-media
+- wai
+- warp
 
 ghc-options:
 - -Wall
