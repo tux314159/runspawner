@@ -35,6 +35,7 @@ import System.IO
 import System.IO.Temp
 import System.Posix.Files
 import System.Process
+import Debug.Trace
 
 -- | Copy a directory recursively
 copyDirRecursive :: FilePath -> FilePath -> IO ()

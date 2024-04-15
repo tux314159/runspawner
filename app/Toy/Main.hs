@@ -4,6 +4,7 @@ module Toy.Main (main) where
 
 import Control.Monad.Writer.Strict (liftIO)
 import qualified Data.Text.IO as T
+import Debug.Trace (traceIO)
 import System.Nspawn.Container
 
 main :: IO ()
@@ -14,6 +15,7 @@ main = do
       ( \contDo -> do
           contDo CCPutStrLn "echo hi"
           contDo CCWaitShCmd
+          liftIO . putStrLn . (:[]) =<< contDo CCGetChar CCOut
           liftIO . T.putStrLn =<< contDo CCGetLine CCOut
 
           contDo CCPutStrLn "echo bye"

@@ -40,24 +40,19 @@ int main(void)
 	tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
 	// We are ready
 	write(STDOUT_FILENO, "\n", 1);
-
 	int job_ppe = open(job_pipe_path, O_WRONLY);
+	// Drop permissions
+	setgid(1000);
+	setuid(1000);
 
 	char cmd[BUFSZ];
 	int n;
 	while ((n = read(STDIN_FILENO, cmd, BUFSZ-1))) {
 		cmd[n - 1] = '\0';
-		pid_t cpid = fork();
-		if (!cpid) {
-			close(job_ppe);
-			setgid(1000);
-			setuid(1000);
-			system(cmd);
-			_exit(0);
-		}
-		wait(NULL);
+		system(cmd);
 		fsync(STDOUT_FILENO);
 		write(job_ppe, "\n", 1);
+		fsync(job_ppe);
 	}
 
 	close(job_ppe);
