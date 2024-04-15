@@ -25,6 +25,7 @@ where
 import Control.Monad (void, when, (<=<))
 import Control.Monad.Except (runExceptT, ExceptT)
 import Control.Monad.Writer.Strict (execWriterT, MonadIO(..), WriterT)
+import Data.Bifunctor (second)
 import Data.DList (DList, toList)
 import Data.List (intersperse)
 import qualified Data.Text as T
@@ -88,7 +89,7 @@ withContainer base computation = do
           -- Copy base container to temp container
           removeDirectory contPath
           copyDirRecursive (contBasePath base) contPath
-          copyFile  "sherver/sherver" (contPath </> "bin/sherver")
+          copyFile "sherver/sherver" (contPath </> "bin/sherver")
 
           -- Create the job pipe
           createNamedPipe (contPath ++ jobPipePath) $ stdFileMode `unionFileModes` namedPipeMode
@@ -118,9 +119,7 @@ withContainer base computation = do
           _ <- waitForProcess ph
 
           hClose jobCtlPipe
-          case compWriter' of
-            Left err -> pure $ Left err
-            Right compWriter -> pure . Right $ toList compWriter
+          pure $ second toList compWriter'
       )
 
 -- Now, we can define some more nice container actions

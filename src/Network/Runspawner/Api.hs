@@ -17,8 +17,6 @@ import Data.Aeson
 import Data.Aeson.Types
 import Data.ByteString (ByteString)
 import Network.HTTP.Media ((//), (/:))
-import Network.Wai
-import Network.Wai.Handler.Warp
 import Servant
 
-type RunspAPI = "hello" :> Get '[JSON] String
+type RunspAPI = "runcommand" :> QueryParam "cmd" String :> Get '[JSON] String
