@@ -104,8 +104,8 @@ withContainer base computation = do
                 }
           _ <- hGetLine outpipe -- empty line emitted by sherver to signal ready
           jobCtlPipe <- openFile (contPath ++ jobPipePath) ReadMode
-          -- Set modes
 
+          -- Set modes
           mapM_ (`hSetBinaryMode` True) [inpipe, outpipe, errpipe]
           mapM_ (`hSetBuffering` LineBuffering) [inpipe, outpipe, errpipe]
 
