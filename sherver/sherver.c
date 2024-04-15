@@ -30,20 +30,12 @@ const char job_pipe_path[] = "/var/lib/runspawner-job-pipe";
 
 int main(void)
 {
-	// Put ourselves into raw mode
-	struct termios raw;
-	tcgetattr(STDIN_FILENO, &raw);
-	raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
-	raw.c_oflag &= ~(OPOST);
-	raw.c_cflag |= (CS8);
-	raw.c_lflag &= ~(ECHO | IEXTEN | ISIG);
-	tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
-	// We are ready
-	write(STDOUT_FILENO, "\n", 1);
-	int job_ppe = open(job_pipe_path, O_WRONLY);
-	// Drop permissions
+	// Open job pipe and drop permissions
 	setgid(1000);
 	setuid(1000);
+	int job_ppe = open(job_pipe_path, O_WRONLY);
+	// We are ready
+	write(STDOUT_FILENO, "\n", 1);
 
 	char cmd[BUFSZ];
 	int n;

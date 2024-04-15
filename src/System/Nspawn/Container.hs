@@ -97,7 +97,7 @@ withContainer base computation = do
           -- Start the container
           (Just inpipe, Just outpipe, Just errpipe, ph) <-
             createProcess $
-              (proc "systemd-nspawn" ["-q", "--console=interactive", "--private-users=yes", "--private-network", "--drop-capability=all", "-D", contPath, "/bin/sherver"])
+              (proc "systemd-nspawn" ["-q", "--console=pipe", "--private-users=yes", "--private-network", "--drop-capability=all", "-D", contPath, "/bin/sherver"])
                 { std_in = CreatePipe,
                   std_out = CreatePipe,
                   std_err = CreatePipe
